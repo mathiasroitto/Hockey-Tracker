@@ -1,0 +1,80 @@
+name: HockeyTracker
+
+# This file describes the Xcode project. The actual `.xcodeproj` is generated
+# from it with XcodeGen (https://github.com/yonaskolb/XcodeGen):
+#
+#     brew install xcodegen
+#     xcodegen generate          # or: make project
+#
+# Keeping the project definition in YAML avoids the noisy, merge-unfriendly
+# `project.pbxproj` and makes the structure easy to read and review.
+
+options:
+  bundleIdPrefix: com.hockeytracker
+  deploymentTarget:
+    iOS: "17.0"
+    watchOS: "10.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  # Xcode 16+ requires the watch app to be embedded in PlugIns/, but XcodeGen
+  # still emits the older Watch/ location. This patches the generated project.
+  # See Scripts/fix-watch-embed.sh.
+  postGenCommand: ./Scripts/fix-watch-embed.sh
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+    # Set your Apple Developer Team ID here (or in Xcode > Signing & Capabilities)
+    # to be able to run on a physical Apple Watch / iPhone.
+    DEVELOPMENT_TEAM: ""
+    GENERATE_INFOPLIST_FILE: NO
+
+targets:
+  # ---------------------------------------------------------------------------
+  # iPhone app: receives finished games from the watch and shows the stats.
+  # ---------------------------------------------------------------------------
+  HockeyTracker:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Shared
+      - path: iOS
+    dependencies:
+      - target: HockeyTrackerWatch
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.HockeyTracker
+        PRODUCT_NAME: HockeyTracker
+        INFOPLIST_FILE: iOS/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+
+  # ---------------------------------------------------------------------------
+  # Apple Watch app: this is where the game is actually recorded. It runs a
+  # workout session so it keeps tracking (heart rate, speed, shifts) for the
+  # whole game and persists everything to disk so data survives a dead battery.
+  # ---------------------------------------------------------------------------
+  HockeyTrackerWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: Shared
+      - path: Watch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.HockeyTracker.watchkitapp
+        PRODUCT_NAME: HockeyTracker
+        INFOPLIST_FILE: Watch/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Watch/HockeyTrackerWatch.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "4"
+        WATCHOS_DEPLOYMENT_TARGET: "10.0"

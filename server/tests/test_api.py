@@ -3,17 +3,22 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, select
 
 from app.main import app, get_store
-from app.storage import GameStore, make_engine
+from app.storage import EventRow, GameStore, ShiftRow, make_engine
 
 
 @pytest.fixture()
-def client():
+def store():
     # Isolated in-memory SQLite per test. StaticPool keeps a single shared
     # connection so the in-memory DB survives across sessions within the test.
     engine = make_engine("sqlite://", poolclass=StaticPool)
-    store = GameStore(engine)
+    return GameStore(engine)
+
+
+@pytest.fixture()
+def client(store):
     app.dependency_overrides[get_store] = lambda: store
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -73,6 +78,27 @@ def test_game_persists_and_round_trips(client):
     listed = client.get("/games").json()
     assert len(listed) == 1
     assert listed[0]["id"] == game["id"]
+
+
+def test_events_and_shifts_are_relational_rows(client, store):
+    game = client.post("/games/ingest", json=_sample_ingest()).json()
+
+    # Events and shifts live in their own tables, keyed by game_id — directly
+    # queryable rather than buried in a JSON blob.
+    with Session(store._engine) as session:
+        events = session.exec(
+            select(EventRow).where(EventRow.game_id == game["id"])
+        ).all()
+        shifts = session.exec(
+            select(ShiftRow).where(ShiftRow.game_id == game["id"])
+        ).all()
+
+    assert len(events) == 5
+    assert {e.type for e in events} == {
+        "shot", "goal", "assist", "faceoff_win", "faceoff_loss"
+    }
+    assert len(shifts) == 2
+    assert sum(s.durationSeconds for s in shifts) == 100.0
 
 
 def test_game_stats_math(client):

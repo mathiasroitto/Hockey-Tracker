@@ -15,16 +15,31 @@ tests/         pytest + FastAPI TestClient (isolated in-memory SQLite per test)
 
 ## Persistence
 
-Games persist to SQLite via SQLModel. Each game is one row: indexed `id` and
-`createdAt` columns plus the full contract-shaped `Game` as a JSON `payload`, so
-what's stored round-trips exactly to the contract with no ORM mapping to drift.
+Games persist to SQLite via SQLModel using a normalized relational schema:
+
+```
+games   one row per game: scalar fields (date, opponent, location, periods)
+        + createdAt, + biometrics summary as a JSON column
+events  one row per event, FK game_id → games.id   (indexed)
+shifts  one row per shift, FK game_id → games.id    (indexed)
+```
+
+Events and shifts are their own tables so they're directly queryable (date
+ranges, per-opponent, per-period) rather than locked in a JSON blob. `date` and
+`opponent` on `games` are indexed for the same reason. Biometrics stays a JSON
+column — it's a single summary per game, not a collection to query across.
+`GameStore` reconstructs contract-shaped `Game` objects from these rows; the
+add/get/list interface is unchanged, so routes and the contract don't move.
 
 - Default DB: `sqlite:///./hockey.db` (gitignored). Override with `HOCKEY_DB_URL`
   — e.g. point it at Postgres and nothing else changes.
 - Routes get the store via the `get_store` dependency; tests override it with an
   isolated in-memory SQLite (`StaticPool`) so they never touch the real file.
-- Moving to a proper relational schema (separate `events`/`shifts` tables) is a
-  `storage.py`-only change; routes and the contract stay put.
+- Schema note: `storage.py` deliberately omits `from __future__ import
+  annotations` — SQLModel/SQLAlchemy must resolve `Relationship` annotations at
+  runtime, and stringized annotations break that resolution.
+- No migrations yet. Changing the table schema needs a fresh DB (or add Alembic
+  before there's data worth keeping).
 
 ## Run & test
 

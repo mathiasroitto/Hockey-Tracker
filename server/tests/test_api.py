@@ -26,11 +26,11 @@ def client(store):
     app.dependency_overrides.clear()
 
 
-def _sample_ingest() -> dict:
+def _sample_ingest(opponent: str = "Rival HC", date: str = "2026-07-22") -> dict:
     now = datetime.now(timezone.utc).isoformat()
     return {
-        "date": "2026-07-22",
-        "opponent": "Rival HC",
+        "date": date,
+        "opponent": opponent,
         "location": "Home Rink",
         "periods": 3,
         "events": [
@@ -116,6 +116,53 @@ def test_game_stats_math(client):
     assert stats["totalIceTimeSeconds"] == 100.0
     assert stats["shiftCount"] == 2
     assert stats["avgShiftSeconds"] == 50.0
+
+
+def test_filter_by_opponent_case_insensitive(client):
+    client.post("/games/ingest", json=_sample_ingest(opponent="Rival HC"))
+    client.post("/games/ingest", json=_sample_ingest(opponent="Other HC"))
+
+    games = client.get("/games", params={"opponent": "rival hc"}).json()
+    assert len(games) == 1
+    assert games[0]["opponent"] == "Rival HC"
+
+
+def test_filter_by_date_range_inclusive(client):
+    client.post("/games/ingest", json=_sample_ingest(date="2026-01-10"))
+    client.post("/games/ingest", json=_sample_ingest(date="2026-02-20"))
+    client.post("/games/ingest", json=_sample_ingest(date="2026-03-30"))
+
+    # Inclusive on both ends.
+    games = client.get("/games", params={"from": "2026-02-20", "to": "2026-03-30"}).json()
+    dates = [g["date"] for g in games]
+    assert dates == ["2026-03-30", "2026-02-20"]  # newest game date first
+
+    # Open-ended lower bound.
+    games = client.get("/games", params={"to": "2026-01-31"}).json()
+    assert [g["date"] for g in games] == ["2026-01-10"]
+
+
+def test_filters_combine_with_and(client):
+    client.post("/games/ingest", json=_sample_ingest(opponent="Rival HC", date="2026-01-10"))
+    client.post("/games/ingest", json=_sample_ingest(opponent="Rival HC", date="2026-05-01"))
+    client.post("/games/ingest", json=_sample_ingest(opponent="Other HC", date="2026-05-01"))
+
+    games = client.get(
+        "/games",
+        params={"opponent": "Rival HC", "from": "2026-04-01", "to": "2026-06-01"},
+    ).json()
+    assert len(games) == 1
+    assert games[0]["opponent"] == "Rival HC"
+    assert games[0]["date"] == "2026-05-01"
+
+
+def test_no_filters_returns_all_newest_first(client):
+    client.post("/games/ingest", json=_sample_ingest(date="2026-01-10"))
+    client.post("/games/ingest", json=_sample_ingest(date="2026-03-30"))
+    client.post("/games/ingest", json=_sample_ingest(date="2026-02-20"))
+
+    games = client.get("/games").json()
+    assert [g["date"] for g in games] == ["2026-03-30", "2026-02-20", "2026-01-10"]
 
 
 def test_career_stats(client):

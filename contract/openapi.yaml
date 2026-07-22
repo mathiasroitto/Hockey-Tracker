@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Hockey-Tracker API
-  version: 0.1.0
+  version: 0.2.0
   description: >
     The single source of truth for data shapes and endpoints shared across the
     Apple Watch capture app, the iOS/iPadOS stats app, and the server.
@@ -36,8 +36,28 @@ paths:
   /games:
     get:
       tags: [games]
-      summary: List games (most recent first)
+      summary: List games, newest first, with optional filters
+      description: >
+        Returns games ordered by game date (newest first). All filters are
+        optional and combine with AND. `from`/`to` filter on the game date and
+        are inclusive on both ends.
       operationId: listGames
+      parameters:
+        - name: opponent
+          in: query
+          required: false
+          description: Case-insensitive exact match on opponent name.
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          description: Only games on or after this date (inclusive).
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Only games on or before this date (inclusive).
+          schema: { type: string, format: date }
       responses:
         "200":
           description: Games

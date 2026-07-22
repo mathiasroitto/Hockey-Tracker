@@ -19,7 +19,7 @@ import os
 from datetime import date as date_type, datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
@@ -175,11 +175,32 @@ class GameStore:
             row = session.get(GameRow, str(game_id))
             return _to_game(row) if row else None
 
-    def list(self) -> list[Game]:
+    def list(
+        self,
+        *,
+        opponent: str | None = None,
+        date_from: date_type | None = None,
+        date_to: date_type | None = None,
+    ) -> list[Game]:
+        """Return games newest-first, with optional filters (combined with AND).
+
+        `opponent` is a case-insensitive exact match; `date_from`/`date_to` are
+        an inclusive range on the game date. All filters hit indexed columns.
+        """
+        statement = (
+            select(GameRow)
+            .options(selectinload(GameRow.events), selectinload(GameRow.shifts))
+            .order_by(GameRow.date.desc(), GameRow.createdAt.desc())
+        )
+        if opponent is not None:
+            statement = statement.where(
+                func.lower(GameRow.opponent) == opponent.lower()
+            )
+        if date_from is not None:
+            statement = statement.where(GameRow.date >= date_from)
+        if date_to is not None:
+            statement = statement.where(GameRow.date <= date_to)
+
         with Session(self._engine) as session:
-            rows = session.exec(
-                select(GameRow)
-                .options(selectinload(GameRow.events), selectinload(GameRow.shifts))
-                .order_by(GameRow.createdAt.desc())
-            ).all()
+            rows = session.exec(statement).all()
             return [_to_game(row) for row in rows]

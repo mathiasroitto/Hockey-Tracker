@@ -14,7 +14,9 @@ def store():
     # Isolated in-memory SQLite per test. StaticPool keeps a single shared
     # connection so the in-memory DB survives across sessions within the test.
     engine = make_engine("sqlite://", poolclass=StaticPool)
-    return GameStore(engine)
+    store = GameStore(engine)
+    store.create_tables()  # in-memory DB: build schema directly, no migrations
+    return store
 
 
 @pytest.fixture()

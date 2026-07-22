@@ -124,7 +124,14 @@ def make_engine(url: str | None = None, **kwargs):
 class GameStore:
     def __init__(self, engine) -> None:
         self._engine = engine
-        SQLModel.metadata.create_all(engine)
+
+    def create_tables(self) -> None:
+        """Create tables directly from metadata.
+
+        For tests and throwaway/in-memory databases. Real databases are managed
+        by Alembic migrations (`alembic upgrade head`) — do not call this there.
+        """
+        SQLModel.metadata.create_all(self._engine)
 
     def add(self, ingest: GameIngest) -> Game:
         game = Game(**ingest.model_dump(), createdAt=datetime.now(timezone.utc))

@@ -38,16 +38,39 @@ add/get/list interface is unchanged, so routes and the contract don't move.
 - Schema note: `storage.py` deliberately omits `from __future__ import
   annotations` — SQLModel/SQLAlchemy must resolve `Relationship` annotations at
   runtime, and stringized annotations break that resolution.
-- No migrations yet. Changing the table schema needs a fresh DB (or add Alembic
-  before there's data worth keeping).
+
+## Migrations (Alembic)
+
+Alembic owns the real database schema. `GameStore` no longer auto-creates
+tables — `create_tables()` exists only for tests/throwaway in-memory DBs.
+
+```bash
+alembic upgrade head          # apply migrations (run before first start)
+alembic revision --autogenerate -m "describe the change"   # after editing models
+alembic downgrade -1          # roll back one revision
+alembic current / history     # inspect state
+```
+
+Workflow for a schema change:
+1. Edit the table models in `storage.py`.
+2. `alembic revision --autogenerate -m "..."` and **review** the generated file
+   in `alembic/versions/` — autogenerate is a draft, not gospel (it misses some
+   changes and can't infer data backfills).
+3. `alembic upgrade head`, then run the tests.
+
+Config: `alembic/env.py` points `target_metadata` at `SQLModel.metadata` and
+gets its URL from `make_engine()` (so `HOCKEY_DB_URL` applies). `render_as_batch`
+is on because SQLite needs batch mode for `ALTER TABLE`. Generated migrations
+`import sqlmodel` (via `script.py.mako`) for its column types.
 
 ## Run & test
 
 ```bash
 cd server
 pip install -e ".[dev]"
+alembic upgrade head               # create/upgrade the database schema
 uvicorn app.main:app --reload      # http://localhost:8000  (/docs for Swagger)
-pytest                             # run the test suite
+pytest                             # run the test suite (uses its own in-memory DB)
 ```
 
 ## Rules for this component
@@ -56,6 +79,6 @@ pytest                             # run the test suite
   aren't in `contract/openapi.yaml` — request a contract change instead.
 - Keep `main.py` thin. Business logic goes in `stats.py`; persistence behind the
   `GameStore` interface in `storage.py`.
-- The in-memory store is a starting point. Replacing it with a real database
-  should not require changing the routers — only `storage.py`.
+- Any change to the table models in `storage.py` needs a matching Alembic
+  migration (see above) — don't hand-edit the DB.
 - Every new endpoint gets a test in `tests/`.

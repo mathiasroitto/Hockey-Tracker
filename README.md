@@ -39,6 +39,7 @@ the full rules.
 ```bash
 cd server
 pip install -e ".[dev]"
+alembic upgrade head            # create/upgrade the SQLite schema
 uvicorn app.main:app --reload   # http://localhost:8000  (Swagger at /docs)
 pytest
 ```

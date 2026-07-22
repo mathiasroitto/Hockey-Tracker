@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.7",
     "sqlmodel>=0.0.16",
     "alembic>=1.13",
+    "pyjwt[crypto]>=2.8",
 ]
 
 [project.optional-dependencies]

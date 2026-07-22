@@ -1,18 +1,29 @@
 openapi: 3.1.0
 info:
   title: Hockey-Tracker API
-  version: 0.2.0
+  version: 0.3.0
   description: >
     The single source of truth for data shapes and endpoints shared across the
     Apple Watch capture app, the iOS/iPadOS stats app, and the server.
     Watch/iOS clients implement models from the schemas below; the FastAPI
     server implements both schemas and paths.
 
+
+    Authentication: every endpoint except `/health` requires a Sign in with
+    Apple identity token, sent as `Authorization: Bearer <token>`. The server
+    verifies the token with Apple and scopes all data to the authenticated user.
+    A user only ever sees and modifies their own games.
+
 servers:
   - url: http://localhost:8000
     description: Local development
 
+security:
+  - appleIdentityToken: []
+
 tags:
+  - name: auth
+    description: Authentication and the current user
   - name: games
     description: Game records and ingestion
   - name: stats
@@ -23,6 +34,7 @@ paths:
     get:
       summary: Liveness probe
       operationId: healthCheck
+      security: []  # public: no auth required
       responses:
         "200":
           description: Service is up
@@ -32,6 +44,23 @@ paths:
                 type: object
                 properties:
                   status: { type: string, example: ok }
+
+  /me:
+    get:
+      tags: [auth]
+      summary: The authenticated user
+      description: >
+        Returns the current user, creating the account on first sign-in. Use
+        this to confirm a token is valid and to obtain the user's id.
+      operationId: getCurrentUser
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /games:
     get:
@@ -60,12 +89,14 @@ paths:
           schema: { type: string, format: date }
       responses:
         "200":
-          description: Games
+          description: Games owned by the authenticated user
           content:
             application/json:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Game" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /games/ingest:
     post:
@@ -79,10 +110,12 @@ paths:
             schema: { $ref: "#/components/schemas/GameIngest" }
       responses:
         "201":
-          description: Stored
+          description: Stored, owned by the authenticated user
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Game" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /games/{gameId}:
     get:
@@ -100,8 +133,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Game" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Not found
+          description: Not found, or not owned by the authenticated user
 
   /games/{gameId}/stats:
     get:
@@ -119,8 +154,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GameStats" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Not found
+          description: Not found, or not owned by the authenticated user
 
   /stats/career:
     get:
@@ -129,13 +166,43 @@ paths:
       operationId: getCareerStats
       responses:
         "200":
-          description: Career totals and averages
+          description: Career totals and averages for the authenticated user
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CareerStats" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
+  securitySchemes:
+    appleIdentityToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        A Sign in with Apple identity token (JWT) obtained on the Watch/iOS
+        client, sent as `Authorization: Bearer <token>`. The server verifies it
+        against Apple's public keys and maps the token's `sub` to a user.
+
+  responses:
+    Unauthorized:
+      description: Missing, invalid, or expired authentication token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+
   schemas:
+    User:
+      type: object
+      description: An account, identified by Sign in with Apple
+      required: [id, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        displayName: { type: string, nullable: true }
     EventType:
       type: string
       description: A tracked in-game event

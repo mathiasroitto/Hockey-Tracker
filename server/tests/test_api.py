@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, select
 
+from app.auth import get_current_user
 from app.main import app, get_store
 from app.storage import EventRow, GameStore, ShiftRow, make_engine
 
@@ -20,10 +21,24 @@ def store():
 
 
 @pytest.fixture()
-def client(store):
+def user(store):
+    # A real user row so game FKs resolve; auth itself is stubbed below.
+    return store.get_or_create_user("apple-sub-primary")
+
+
+@pytest.fixture()
+def client(store, user):
+    # Override both the store and auth: tests never verify a real Apple token.
     app.dependency_overrides[get_store] = lambda: store
+    app.dependency_overrides[get_current_user] = lambda: user
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+def _as_user(store, user) -> TestClient:
+    app.dependency_overrides[get_store] = lambda: store
+    app.dependency_overrides[get_current_user] = lambda: user
+    return TestClient(app)
 
 
 def _sample_ingest(opponent: str = "Rival HC", date: str = "2026-07-22") -> dict:
@@ -55,6 +70,57 @@ def _sample_ingest(opponent: str = "Rival HC", date: str = "2026-07-22") -> dict
 
 def test_health(client):
     assert client.get("/health").json() == {"status": "ok"}
+
+
+def test_me_returns_current_user(client, user):
+    body = client.get("/me").json()
+    assert body["id"] == str(user.id)
+
+
+def test_endpoints_require_authentication(store):
+    # No get_current_user override: the real auth dependency runs. With no
+    # Authorization header it must 401 (offline — never reaches Apple).
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        c = TestClient(app)
+        assert c.get("/health").status_code == 200  # public
+        assert c.get("/me").status_code == 401
+        assert c.get("/games").status_code == 401
+        assert c.get("/stats/career").status_code == 401
+        assert c.post("/games/ingest", json=_sample_ingest()).status_code == 401
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_data_is_scoped_per_user(store):
+    alice = store.get_or_create_user("apple-sub-alice")
+    bob = store.get_or_create_user("apple-sub-bob")
+    try:
+        alice_game = _as_user(store, alice).post(
+            "/games/ingest", json=_sample_ingest(opponent="Alice Opp")
+        ).json()
+        _as_user(store, bob).post(
+            "/games/ingest", json=_sample_ingest(opponent="Bob Opp")
+        )
+
+        # Each user sees only their own games.
+        assert [g["opponent"] for g in _as_user(store, alice).get("/games").json()] == [
+            "Alice Opp"
+        ]
+        assert [g["opponent"] for g in _as_user(store, bob).get("/games").json()] == [
+            "Bob Opp"
+        ]
+
+        # Career stats are scoped.
+        assert _as_user(store, bob).get("/stats/career").json()["gamesPlayed"] == 1
+
+        # No cross-user access: Bob gets 404 for Alice's game; Alice gets 200.
+        gid = alice_game["id"]
+        assert _as_user(store, bob).get(f"/games/{gid}").status_code == 404
+        assert _as_user(store, bob).get(f"/games/{gid}/stats").status_code == 404
+        assert _as_user(store, alice).get(f"/games/{gid}").status_code == 200
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_ingest_and_fetch_game(client):

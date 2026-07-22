@@ -39,7 +39,11 @@ the full rules.
 ```bash
 cd server
 pip install -e ".[dev]"
+export APPLE_CLIENT_ID=<your app's bundle/Services id>   # required for auth
 alembic upgrade head            # create/upgrade the SQLite schema
 uvicorn app.main:app --reload   # http://localhost:8000  (Swagger at /docs)
 pytest
 ```
+
+All endpoints except `/health` require a Sign in with Apple identity token
+(`Authorization: Bearer <token>`); data is scoped per user.

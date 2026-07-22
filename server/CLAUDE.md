@@ -10,16 +10,32 @@ app/
   models.py    Pydantic models MIRRORING contract/openapi.yaml
   stats.py     Pure functions: the hockey math (no framework/storage)
   storage.py   GameStore backed by SQLite (SQLModel); swap-able for any DB
+  auth.py      Sign in with Apple verification + get_current_user dependency
 tests/         pytest + FastAPI TestClient (isolated in-memory SQLite per test)
 ```
+
+## Authentication & per-user scoping
+
+Every endpoint except `/health` requires a Sign in with Apple identity token
+(`Authorization: Bearer <token>`). `auth.py` verifies the JWT against Apple's
+public keys (`PyJWKClient`), extracts the stable `sub`, and maps it to a user
+(created on first sign-in). All game/stats data is scoped to that user —
+`GameStore.get/list/add` all take a `user_id`, and cross-user access returns 404.
+
+- Config via env: `APPLE_CLIENT_ID` (audience — your bundle/Services id;
+  **required**, verification 500s without it), `APPLE_ISSUER`, `APPLE_JWKS_URL`.
+- Routes depend on `get_current_user`; tests override it (and `get_store`) so no
+  real token is ever verified. The 401 path is exercised by leaving it
+  un-overridden and sending no header (never reaches Apple).
 
 ## Persistence
 
 Games persist to SQLite via SQLModel using a normalized relational schema:
 
 ```
-games   one row per game: scalar fields (date, opponent, location, periods)
-        + createdAt, + biometrics summary as a JSON column
+users   one row per account: apple_sub (unique), createdAt, displayName
+games   one row per game: FK user_id → users.id (indexed), scalar fields
+        (date, opponent, location, periods) + createdAt + biometrics JSON
 events  one row per event, FK game_id → games.id   (indexed)
 shifts  one row per shift, FK game_id → games.id    (indexed)
 ```
@@ -62,6 +78,11 @@ Config: `alembic/env.py` points `target_metadata` at `SQLModel.metadata` and
 gets its URL from `make_engine()` (so `HOCKEY_DB_URL` applies). `render_as_batch`
 is on because SQLite needs batch mode for `ALTER TABLE`. Generated migrations
 `import sqlmodel` (via `script.py.mako`) for its column types.
+
+Batch-mode gotcha: SQLite batch operations require **named** constraints.
+Autogenerate emits `create_foreign_key(None, ...)`, which fails with "Constraint
+must have a name" — give it an explicit name in the migration (e.g.
+`fk_games_user_id_users`). This is exactly why generated migrations get reviewed.
 
 ## Run & test
 

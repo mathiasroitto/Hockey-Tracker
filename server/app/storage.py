@@ -24,9 +24,18 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
 
-from .models import BiometricSummary, Game, GameEvent, GameIngest, Shift
+from .models import BiometricSummary, Game, GameEvent, GameIngest, Shift, User
 
 DEFAULT_DB_URL = "sqlite:///./hockey.db"
+
+
+class UserRow(SQLModel, table=True):
+    __tablename__ = "users"
+
+    id: str = Field(primary_key=True)
+    apple_sub: str = Field(unique=True, index=True)
+    createdAt: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    displayName: str | None = None
 
 
 class EventRow(SQLModel, table=True):
@@ -58,6 +67,7 @@ class GameRow(SQLModel, table=True):
     __tablename__ = "games"
 
     id: str = Field(primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
     createdAt: datetime = Field(
         sa_column=Column(DateTime(timezone=True), index=True, nullable=False)
     )
@@ -133,10 +143,37 @@ class GameStore:
         """
         SQLModel.metadata.create_all(self._engine)
 
-    def add(self, ingest: GameIngest) -> Game:
+    # --- users -----------------------------------------------------------
+
+    def get_or_create_user(self, apple_sub: str) -> User:
+        """Return the user for this Apple `sub`, creating them on first sign-in."""
+        with Session(self._engine) as session:
+            row = session.exec(
+                select(UserRow).where(UserRow.apple_sub == apple_sub)
+            ).first()
+            if row is None:
+                user = User(createdAt=datetime.now(timezone.utc))
+                row = UserRow(
+                    id=str(user.id),
+                    apple_sub=apple_sub,
+                    createdAt=user.createdAt,
+                )
+                session.add(row)
+                session.commit()
+                return user
+            return User(
+                id=UUID(row.id),
+                createdAt=_as_utc(row.createdAt),
+                displayName=row.displayName,
+            )
+
+    # --- games (scoped to a user) ---------------------------------------
+
+    def add(self, user_id: UUID, ingest: GameIngest) -> Game:
         game = Game(**ingest.model_dump(), createdAt=datetime.now(timezone.utc))
         row = GameRow(
             id=str(game.id),
+            user_id=str(user_id),
             createdAt=game.createdAt,
             date=game.date,
             opponent=game.opponent,
@@ -170,25 +207,30 @@ class GameStore:
             session.commit()
         return game
 
-    def get(self, game_id: UUID) -> Game | None:
+    def get(self, user_id: UUID, game_id: UUID) -> Game | None:
+        """Return the game only if it belongs to this user, else None."""
         with Session(self._engine) as session:
             row = session.get(GameRow, str(game_id))
-            return _to_game(row) if row else None
+            if row is None or row.user_id != str(user_id):
+                return None
+            return _to_game(row)
 
     def list(
         self,
+        user_id: UUID,
         *,
         opponent: str | None = None,
         date_from: date_type | None = None,
         date_to: date_type | None = None,
     ) -> list[Game]:
-        """Return games newest-first, with optional filters (combined with AND).
+        """Return this user's games newest-first, with optional filters (AND).
 
         `opponent` is a case-insensitive exact match; `date_from`/`date_to` are
         an inclusive range on the game date. All filters hit indexed columns.
         """
         statement = (
             select(GameRow)
+            .where(GameRow.user_id == str(user_id))
             .options(selectinload(GameRow.events), selectinload(GameRow.shifts))
             .order_by(GameRow.date.desc(), GameRow.createdAt.desc())
         )

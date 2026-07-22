@@ -26,6 +26,12 @@ class EventType(str, Enum):
     giveaway = "giveaway"
 
 
+class User(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    createdAt: datetime
+    displayName: str | None = None
+
+
 class GameEvent(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     type: EventType

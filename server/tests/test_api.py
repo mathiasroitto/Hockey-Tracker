@@ -1,11 +1,22 @@
 from datetime import datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
 
-from app.main import app
-from app.storage import store
+from app.main import app, get_store
+from app.storage import GameStore, make_engine
 
-client = TestClient(app)
+
+@pytest.fixture()
+def client():
+    # Isolated in-memory SQLite per test. StaticPool keeps a single shared
+    # connection so the in-memory DB survives across sessions within the test.
+    engine = make_engine("sqlite://", poolclass=StaticPool)
+    store = GameStore(engine)
+    app.dependency_overrides[get_store] = lambda: store
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 
 def _sample_ingest() -> dict:
@@ -35,15 +46,11 @@ def _sample_ingest() -> dict:
     }
 
 
-def setup_function() -> None:
-    store._games.clear()
-
-
-def test_health():
+def test_health(client):
     assert client.get("/health").json() == {"status": "ok"}
 
 
-def test_ingest_and_fetch_game():
+def test_ingest_and_fetch_game(client):
     resp = client.post("/games/ingest", json=_sample_ingest())
     assert resp.status_code == 201
     game = resp.json()
@@ -54,7 +61,21 @@ def test_ingest_and_fetch_game():
     assert got.json()["id"] == game["id"]
 
 
-def test_game_stats_math():
+def test_game_persists_and_round_trips(client):
+    game = client.post("/games/ingest", json=_sample_ingest()).json()
+
+    # Full payload survives the DB round-trip, nested shapes intact.
+    fetched = client.get(f"/games/{game['id']}").json()
+    assert len(fetched["events"]) == 5
+    assert len(fetched["shifts"]) == 2
+    assert fetched["biometrics"]["maxHeartRate"] == 182.0
+
+    listed = client.get("/games").json()
+    assert len(listed) == 1
+    assert listed[0]["id"] == game["id"]
+
+
+def test_game_stats_math(client):
     game = client.post("/games/ingest", json=_sample_ingest()).json()
     stats = client.get(f"/games/{game['id']}/stats").json()
 
@@ -69,7 +90,7 @@ def test_game_stats_math():
     assert stats["avgShiftSeconds"] == 50.0
 
 
-def test_career_stats():
+def test_career_stats(client):
     client.post("/games/ingest", json=_sample_ingest())
     client.post("/games/ingest", json=_sample_ingest())
     career = client.get("/stats/career").json()
@@ -79,5 +100,5 @@ def test_career_stats():
     assert career["pointsPerGame"] == 2.0
 
 
-def test_missing_game_404():
+def test_missing_game_404(client):
     assert client.get("/games/00000000-0000-0000-0000-000000000000").status_code == 404

@@ -6,6 +6,9 @@ venv/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+*.db
+*.sqlite
+*.sqlite3
 
 # macOS / Xcode
 .DS_Store

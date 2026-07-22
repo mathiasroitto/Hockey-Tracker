@@ -1,0 +1,235 @@
+openapi: 3.1.0
+info:
+  title: Hockey-Tracker API
+  version: 0.1.0
+  description: >
+    The single source of truth for data shapes and endpoints shared across the
+    Apple Watch capture app, the iOS/iPadOS stats app, and the server.
+    Watch/iOS clients implement models from the schemas below; the FastAPI
+    server implements both schemas and paths.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: games
+    description: Game records and ingestion
+  - name: stats
+    description: Derived statistics
+
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /games:
+    get:
+      tags: [games]
+      summary: List games (most recent first)
+      operationId: listGames
+      responses:
+        "200":
+          description: Games
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Game" }
+
+  /games/ingest:
+    post:
+      tags: [games]
+      summary: Ingest a completed game captured on the Watch
+      operationId: ingestGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GameIngest" }
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+
+  /games/{gameId}:
+    get:
+      tags: [games]
+      summary: Get one game
+      operationId: getGame
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Game
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+        "404":
+          description: Not found
+
+  /games/{gameId}/stats:
+    get:
+      tags: [stats]
+      summary: Per-game statistics
+      operationId: getGameStats
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Stats for one game
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GameStats" }
+        "404":
+          description: Not found
+
+  /stats/career:
+    get:
+      tags: [stats]
+      summary: Aggregate statistics across all games
+      operationId: getCareerStats
+      responses:
+        "200":
+          description: Career totals and averages
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CareerStats" }
+
+components:
+  schemas:
+    EventType:
+      type: string
+      description: A tracked in-game event
+      enum:
+        - goal
+        - assist
+        - shot
+        - hit
+        - block
+        - penalty
+        - faceoff_win
+        - faceoff_loss
+        - takeaway
+        - giveaway
+
+    GameEvent:
+      type: object
+      required: [id, type, periodNumber, timestamp]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/EventType" }
+        periodNumber: { type: integer, minimum: 1 }
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC when the event occurred
+        note: { type: string, nullable: true }
+
+    Shift:
+      type: object
+      required: [id, periodNumber, startTime, durationSeconds]
+      properties:
+        id: { type: string, format: uuid }
+        periodNumber: { type: integer, minimum: 1 }
+        startTime: { type: string, format: date-time }
+        durationSeconds: { type: number, minimum: 0 }
+
+    BiometricSummary:
+      type: object
+      description: Aggregated HealthKit data for the game
+      required: [avgHeartRate, maxHeartRate, activeEnergyKcal]
+      properties:
+        avgHeartRate: { type: number, description: beats per minute }
+        maxHeartRate: { type: number, description: beats per minute }
+        activeEnergyKcal: { type: number, minimum: 0 }
+        timeInZonesSeconds:
+          type: object
+          description: Seconds spent in each HR zone (zone label → seconds)
+          additionalProperties: { type: number }
+
+    GameIngest:
+      type: object
+      description: Payload the Watch uploads after a game
+      required: [date, opponent, events, shifts]
+      properties:
+        date: { type: string, format: date }
+        opponent: { type: string }
+        location: { type: string, nullable: true }
+        periods: { type: integer, default: 3, minimum: 1 }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/GameEvent" }
+        shifts:
+          type: array
+          items: { $ref: "#/components/schemas/Shift" }
+        biometrics:
+          oneOf:
+            - $ref: "#/components/schemas/BiometricSummary"
+            - type: "null"
+
+    Game:
+      allOf:
+        - $ref: "#/components/schemas/GameIngest"
+        - type: object
+          required: [id, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            createdAt: { type: string, format: date-time }
+
+    GameStats:
+      type: object
+      description: Derived numbers for a single game
+      required:
+        [gameId, goals, assists, points, shots, shootingPct, hits,
+         blocks, penalties, faceoffPct, totalIceTimeSeconds, shiftCount]
+      properties:
+        gameId: { type: string, format: uuid }
+        goals: { type: integer }
+        assists: { type: integer }
+        points: { type: integer }
+        shots: { type: integer }
+        shootingPct: { type: number, description: goals / shots, 0..1 }
+        hits: { type: integer }
+        blocks: { type: integer }
+        penalties: { type: integer }
+        faceoffPct: { type: number, description: wins / (wins+losses), 0..1 }
+        totalIceTimeSeconds: { type: number }
+        shiftCount: { type: integer }
+        avgShiftSeconds: { type: number }
+        biometrics:
+          oneOf:
+            - $ref: "#/components/schemas/BiometricSummary"
+            - type: "null"
+
+    CareerStats:
+      type: object
+      description: Totals and per-game averages across every game
+      required: [gamesPlayed, totalGoals, totalAssists, totalPoints, pointsPerGame]
+      properties:
+        gamesPlayed: { type: integer }
+        totalGoals: { type: integer }
+        totalAssists: { type: integer }
+        totalPoints: { type: integer }
+        totalShots: { type: integer }
+        shootingPct: { type: number }
+        pointsPerGame: { type: number }
+        avgIceTimeSeconds: { type: number }

@@ -44,3 +44,26 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
     # Sign in with Apple is enabled via the entitlement below; on the Mac,
     # confirm the "Sign in with Apple" capability is present for the target.
+
+  HockeyTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: HockeyTracker
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  HockeyTracker:
+    build:
+      targets:
+        HockeyTracker: all
+        HockeyTrackerTests: [test]
+    test:
+      targets:
+        - HockeyTrackerTests

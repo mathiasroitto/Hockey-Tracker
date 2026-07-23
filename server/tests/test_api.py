@@ -77,6 +77,66 @@ def test_me_returns_current_user(client, user):
     assert body["id"] == str(user.id)
 
 
+def _fresh_user_client(store) -> TestClient:
+    # get_current_user re-reads the user from the store each request (as real
+    # auth does via get_or_create_user), so GET /me reflects PATCH /me writes.
+    app.dependency_overrides[get_store] = lambda: store
+    app.dependency_overrides[get_current_user] = lambda: store.get_or_create_user(
+        "apple-sub-primary"
+    )
+    return TestClient(app)
+
+
+def test_patch_me_sets_display_name(store, user):
+    try:
+        c = _fresh_user_client(store)
+        resp = c.patch("/me", json={"displayName": "Wayne"})
+        assert resp.status_code == 200
+        assert resp.json()["displayName"] == "Wayne"
+        assert resp.json()["id"] == str(user.id)
+
+        # A subsequent GET reflects the persisted change.
+        assert c.get("/me").json()["displayName"] == "Wayne"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_patch_me_omitting_field_leaves_value_unchanged(store, user):
+    try:
+        c = _fresh_user_client(store)
+        c.patch("/me", json={"displayName": "Gordie"})
+
+        # Empty body omits displayName → unchanged (not cleared).
+        resp = c.patch("/me", json={})
+        assert resp.status_code == 200
+        assert resp.json()["displayName"] == "Gordie"
+        assert c.get("/me").json()["displayName"] == "Gordie"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_patch_me_explicit_null_clears_value(store, user):
+    try:
+        c = _fresh_user_client(store)
+        c.patch("/me", json={"displayName": "Mario"})
+
+        resp = c.patch("/me", json={"displayName": None})
+        assert resp.status_code == 200
+        assert resp.json()["displayName"] is None
+        assert c.get("/me").json()["displayName"] is None
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_patch_me_requires_authentication(store):
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        c = TestClient(app)
+        assert c.patch("/me", json={"displayName": "Nobody"}).status_code == 401
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_endpoints_require_authentication(store):
     # No get_current_user override: the real auth dependency runs. With no
     # Authorization header it must 401 (offline — never reaches Apple).

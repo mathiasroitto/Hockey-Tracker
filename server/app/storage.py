@@ -167,6 +167,28 @@ class GameStore:
                 displayName=row.displayName,
             )
 
+    def update_user(self, user_id: UUID, fields: dict) -> User:
+        """Set only the provided mutable fields on this user, return the result.
+
+        `fields` should already reflect the request's unset-vs-null distinction
+        (i.e. built via `UserUpdate.model_dump(exclude_unset=True)`), so an
+        omitted key leaves the column unchanged and an explicit None clears it.
+        """
+        with Session(self._engine) as session:
+            row = session.get(UserRow, str(user_id))
+            if row is None:
+                raise KeyError(user_id)
+            for key, value in fields.items():
+                setattr(row, key, value)
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return User(
+                id=UUID(row.id),
+                createdAt=_as_utc(row.createdAt),
+                displayName=row.displayName,
+            )
+
     # --- games (scoped to a user) ---------------------------------------
 
     def add(self, user_id: UUID, ingest: GameIngest) -> Game:

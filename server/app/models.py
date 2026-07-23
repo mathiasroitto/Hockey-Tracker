@@ -32,6 +32,16 @@ class User(BaseModel):
     displayName: str | None = None
 
 
+class UserUpdate(BaseModel):
+    """Client-supplied updates to the current user's mutable fields.
+
+    Omitted fields are left unchanged; an explicit null clears the field. Use
+    `model_dump(exclude_unset=True)` to preserve the unset-vs-null distinction.
+    """
+
+    displayName: str | None = None
+
+
 class GameEvent(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     type: EventType

@@ -8,11 +8,11 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, HTTPException, Query
 
 from .auth import get_current_user
-from .models import CareerStats, Game, GameIngest, GameStats, User
+from .models import CareerStats, Game, GameIngest, GameStats, User, UserUpdate
 from .stats import compute_career_stats, compute_game_stats
 from .storage import GameStore, make_engine
 
-app = FastAPI(title="Hockey-Tracker API", version="0.3.0")
+app = FastAPI(title="Hockey-Tracker API", version="0.4.0")
 
 # Process-wide store backed by SQLite (or HOCKEY_DB_URL). Overridable in tests
 # via app.dependency_overrides[get_store].
@@ -31,6 +31,16 @@ def health_check() -> dict[str, str]:
 @app.get("/me", response_model=User, tags=["auth"])
 def get_me(user: User = Depends(get_current_user)) -> User:
     return user
+
+
+@app.patch("/me", response_model=User, tags=["auth"])
+def update_me(
+    payload: UserUpdate,
+    store: GameStore = Depends(get_store),
+    user: User = Depends(get_current_user),
+) -> User:
+    # exclude_unset: omitted fields stay unchanged, explicit null clears them.
+    return store.update_user(user.id, payload.model_dump(exclude_unset=True))
 
 
 @app.get("/games", response_model=list[Game], tags=["games"])

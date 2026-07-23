@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Hockey-Tracker API
-  version: 0.3.0
+  version: 0.4.0
   description: >
     The single source of truth for data shapes and endpoints shared across the
     Apple Watch capture app, the iOS/iPadOS stats app, and the server.
@@ -56,6 +56,38 @@ paths:
       responses:
         "200":
           description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [auth]
+      summary: Update the authenticated user
+      description: >
+        Updates mutable fields on the current user. Currently only
+        `displayName`.
+
+
+        Sign in with Apple does not include the user's name in the identity
+        token, and Apple returns the full name to the client only on the very
+        first authorization — never on subsequent sign-ins. The server
+        therefore cannot derive the name from the token. The client must capture
+        the name once at first sign-in and submit it here to populate
+        `displayName`.
+
+
+        Send `displayName: null` to clear it. Omitting a field leaves it
+        unchanged.
+      operationId: updateCurrentUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdate" }
+      responses:
+        "200":
+          description: The updated user
           content:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
@@ -203,6 +235,15 @@ components:
         id: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         displayName: { type: string, nullable: true }
+
+    UserUpdate:
+      type: object
+      description: >
+        Client-supplied updates to the current user's mutable fields. Omitted
+        fields are left unchanged; an explicit null clears the field.
+      properties:
+        displayName: { type: string, nullable: true }
+
     EventType:
       type: string
       description: A tracked in-game event

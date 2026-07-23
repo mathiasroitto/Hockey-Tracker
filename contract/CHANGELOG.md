@@ -3,6 +3,22 @@
 All notable changes to `openapi.yaml`. Format loosely follows Keep a Changelog;
 versions follow SemVer against `info.version`.
 
+## [0.4.0] — 2026-07-23
+
+### Added
+
+- `PATCH /me` (`updateCurrentUser`) — lets the client set the authenticated
+  user's `displayName`. Sign in with Apple omits the name from the identity
+  token and only returns the full name to the client on the very first
+  authorization, so the server cannot derive it. The client captures the name
+  once at first sign-in and submits it here.
+- `UserUpdate` schema — request body for `PATCH /me`; an optional, nullable
+  `displayName`. Omitted fields are left unchanged; an explicit null clears the
+  field.
+
+Backward compatible: purely additive (new operation and schema); existing
+endpoints are unchanged.
+
 ## [0.3.0] — 2026-07-22
 
 ### Added

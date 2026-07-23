@@ -46,6 +46,38 @@ to the server — the server cannot derive it from the token.
   that case — it would overwrite an already-stored name. Only issue the `PATCH`
   when a non-nil, non-empty name is actually available.
 
+## Watch token hand-off (phone → watch)
+
+The iOS app owns Sign in with Apple, so it is the source of truth for the
+current identity token and pushes it to the paired Watch over WatchConnectivity.
+This is the phone side only; the Watch side consumes the same keys.
+
+- Transport: `WCSession.updateApplicationContext(_:)`. Application context always
+  holds the single latest auth state, overwrites the previous value, and is
+  delivered when the watch next becomes reachable or launches — exactly the
+  semantics we want for "the current token". Do **not** use
+  `transferUserInfo`/`sendMessage` as the primary path.
+- Application-context keys (shared contract with the watch — keep identical):
+  - `"signedIn"` (`Bool`): whether the phone currently has an authenticated user.
+  - `"identityToken"` (`String`): the current identity token when `signedIn` is
+    `true`; the empty string `""` when `signedIn` is `false`.
+- When we push:
+  - on sign-in and token refresh → `["signedIn": true, "identityToken": <token>]`
+  - on sign-out → `["signedIn": false, "identityToken": ""]`
+  - once when the `WCSession` finishes activating, so a freshly launched phone
+    syncs the watch with its current state.
+- Implementation: `Sources/Connectivity/WatchConnectivityManager.swift`
+  (`WCSessionDelegate`). Started from `HockeyTrackerApp` via
+  `WatchConnectivityManager.shared.start(authSession:tokenStore:)`. It observes
+  `AuthSession.$state`: `.signedIn`/`.signedOut` map to pushes, `.authenticating`
+  is ignored (transient) so a refresh never briefly reports "signed out". Dedupe
+  is on the `(signedIn, token)` pair so a new token with unchanged `signedIn`
+  still pushes. `sessionDidDeactivate` reactivates so the hand-off survives the
+  user switching to a different paired watch.
+- Resilience: guards `WCSession.isSupported()`, `isPaired`, and
+  `isWatchAppInstalled`; `updateApplicationContext` errors are logged and
+  swallowed. Nothing here may crash the app or block sign-in.
+
 ## Project layout
 
 The Xcode project is generated from `project.yml` with XcodeGen — the
@@ -62,6 +94,7 @@ ios-app/
     Models/       Codable structs mirroring the contract (see below)
     Networking/   APIClient (async/await URLSession), APIError
     Auth/         AuthSession (Sign in with Apple flow), TokenStore
+    Connectivity/ WatchConnectivityManager (phone→watch token hand-off)
     Support/      JSONCoding (date strategies), Formatting
     Views/        RootView, SignInView, HomeView, GameDetailView,
                   CareerStatsView, ProfileEditorView, AsyncContentView

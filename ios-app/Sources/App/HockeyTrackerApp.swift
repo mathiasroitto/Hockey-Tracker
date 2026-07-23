@@ -5,6 +5,7 @@ struct HockeyTrackerApp: App {
 
     @StateObject private var session: AuthSession
     private let api: APIClient
+    private let tokenStore: TokenStore
 
     init() {
         // Base URL: local dev server by default. Point this at your deployed
@@ -13,6 +14,7 @@ struct HockeyTrackerApp: App {
         let tokenStore = TokenStore()
         let api = APIClient(baseURL: AppConfig.baseURL, tokenProvider: tokenStore)
         self.api = api
+        self.tokenStore = tokenStore
         _session = StateObject(wrappedValue: AuthSession(api: api, tokenStore: tokenStore))
     }
 
@@ -21,6 +23,15 @@ struct HockeyTrackerApp: App {
             RootView()
                 .environmentObject(session)
                 .environment(\.apiClient, api)
+                .task {
+                    // Phone owns Sign in with Apple; mirror the current identity
+                    // token to the paired watch and keep it in sync as auth
+                    // state changes. Never blocks or fails the sign-in flow.
+                    WatchConnectivityManager.shared.start(
+                        authSession: session,
+                        tokenStore: tokenStore
+                    )
+                }
         }
     }
 }

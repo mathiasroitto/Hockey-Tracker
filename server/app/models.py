@@ -6,11 +6,36 @@ shape, change the contract first (contract-agent), then mirror it here.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
+from typing import Annotated
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PlainSerializer
+
+
+def _serialize_utc_millis(value: datetime) -> str:
+    """Emit ISO-8601 UTC with exactly millisecond precision and a `Z` suffix.
+
+    Apple clients can't reliably parse the 6-digit microsecond precision that
+    Pydantic emits by default (e.g. `2026-07-23T22:40:59.110344Z`). This yields
+    the canonical `2026-07-23T22:40:59.110Z` — always 3 fractional digits, even
+    when microseconds are zero. Naive datetimes are assumed to be UTC.
+    """
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    value = value.astimezone(timezone.utc)
+    millis = value.microsecond // 1000
+    return value.strftime("%Y-%m-%dT%H:%M:%S.") + f"{millis:03d}Z"
+
+
+# Shared datetime type: every `date-time` field the server emits serializes to
+# canonical millisecond-precision UTC. `when_used="json"` keeps python-mode
+# access (e.g. stats math) working with real datetime objects.
+UtcDateTime = Annotated[
+    datetime,
+    PlainSerializer(_serialize_utc_millis, return_type=str, when_used="json"),
+]
 
 
 class EventType(str, Enum):
@@ -28,7 +53,7 @@ class EventType(str, Enum):
 
 class User(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    createdAt: datetime
+    createdAt: UtcDateTime
     displayName: str | None = None
 
 
@@ -46,14 +71,14 @@ class GameEvent(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     type: EventType
     periodNumber: int = Field(ge=1)
-    timestamp: datetime
+    timestamp: UtcDateTime
     note: str | None = None
 
 
 class Shift(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     periodNumber: int = Field(ge=1)
-    startTime: datetime
+    startTime: UtcDateTime
     durationSeconds: float = Field(ge=0)
 
 
@@ -76,7 +101,7 @@ class GameIngest(BaseModel):
 
 class Game(GameIngest):
     id: UUID = Field(default_factory=uuid4)
-    createdAt: datetime
+    createdAt: UtcDateTime
 
 
 class GameStats(BaseModel):
@@ -92,7 +117,9 @@ class GameStats(BaseModel):
     faceoffPct: float
     totalIceTimeSeconds: float
     shiftCount: int
-    avgShiftSeconds: float
+    # Not in the contract's `required` list, though the server always populates
+    # it. Optional here for faithfulness to the contract, not a behavior change.
+    avgShiftSeconds: float | None = None
     biometrics: BiometricSummary | None = None
 
 
@@ -101,7 +128,9 @@ class CareerStats(BaseModel):
     totalGoals: int
     totalAssists: int
     totalPoints: int
-    totalShots: int
-    shootingPct: float
     pointsPerGame: float
-    avgIceTimeSeconds: float
+    # Not in the contract's `required` list, though the server always populates
+    # them. Optional here for faithfulness to the contract, not a behavior change.
+    totalShots: int | None = None
+    shootingPct: float | None = None
+    avgIceTimeSeconds: float | None = None

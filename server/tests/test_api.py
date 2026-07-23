@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -303,3 +304,38 @@ def test_career_stats(client):
 
 def test_missing_game_404(client):
     assert client.get("/games/00000000-0000-0000-0000-000000000000").status_code == 404
+
+
+# Canonical timestamp: ISO-8601 UTC, exactly 3 fractional digits, `Z` suffix.
+_MILLIS_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
+
+
+def test_datetimes_serialize_with_millisecond_precision(client):
+    # Ingest a game, then read it back and assert every emitted date-time uses
+    # canonical millisecond precision — including nested events/shifts.
+    game = client.post("/games/ingest", json=_sample_ingest()).json()
+
+    assert _MILLIS_UTC.match(game["createdAt"]), game["createdAt"]
+
+    fetched = client.get(f"/games/{game['id']}").json()
+    assert _MILLIS_UTC.match(fetched["createdAt"]), fetched["createdAt"]
+    assert _MILLIS_UTC.match(fetched["events"][0]["timestamp"]), (
+        fetched["events"][0]["timestamp"]
+    )
+    assert _MILLIS_UTC.match(fetched["shifts"][0]["startTime"]), (
+        fetched["shifts"][0]["startTime"]
+    )
+
+    # Round-trips: the serialized value still parses back to a datetime.
+    parsed = datetime.fromisoformat(fetched["createdAt"].replace("Z", "+00:00"))
+    assert parsed.tzinfo is not None
+
+
+def test_user_createdat_serializes_with_millisecond_precision(store, user):
+    try:
+        c = _fresh_user_client(store)
+        body = c.patch("/me", json={"displayName": "Wayne"}).json()
+        assert _MILLIS_UTC.match(body["createdAt"]), body["createdAt"]
+        assert _MILLIS_UTC.match(c.get("/me").json()["createdAt"])
+    finally:
+        app.dependency_overrides.clear()

@@ -105,14 +105,42 @@ watch-app/
   label -> seconds. Zone buckets are fixed BPM ranges documented in
   `HealthKitManager` (zone1 <120 ... zone5 >=180).
 
-### Auth seam (this MVP)
+### Auth seam (token hand-off from the phone)
 
-`TokenProvider` is the seam for the bearer token. The MVP ships
-`PlaceholderTokenProvider` (token injected out-of-band). Production plan, per the
-section above: the paired iPhone runs Sign in with Apple, and the token is
-delivered to the watch over WatchConnectivity, which calls
-`PlaceholderTokenProvider.setToken(_:)` (or a real provider). No phone-side
-sign-in is implemented here.
+`TokenProvider` is the seam for the bearer token. The paired **iPhone owns Sign
+in with Apple**; the watch never runs the sign-in flow. The phone pushes its
+current auth state to the watch over WatchConnectivity, and
+`WatchConnectivityTokenProvider` (in `Sources/Networking/`) caches it and feeds
+it to `APIClient`. `PlaceholderTokenProvider` is retained for dev/tests only —
+the app wiring (`HockeyTrackerWatchApp.init`) uses the real provider.
+
+**Transport:** `WCSession.updateApplicationContext(_:)`. The application context
+always holds the single latest auth state and is delivered when the watch next
+becomes reachable or launches — the right fit for "the current token" (not a
+message queue).
+
+**Shared application-context keys (MUST match the iOS app exactly):**
+
+| Key             | Type   | Meaning                                                        |
+| --------------- | ------ | ------------------------------------------------------------- |
+| `signedIn`      | `Bool` | Whether the phone currently has an authenticated user.        |
+| `identityToken` | `String` | Current Sign in with Apple identity token when `signedIn`; `""` when signed out. |
+
+**Semantics (watch side):** apply the latest context both at activation (read
+`session.receivedApplicationContext` after `activate()`) **and** live
+(`session(_:didReceiveApplicationContext:)`). When `signedIn` is true and the
+token is non-empty, store it; when false or empty, clear it. The token is stored
+thread-safely (an `NSLock`); `currentToken()` returns the latest cached value
+and never blocks.
+
+**Companion-pairing prerequisite:** WatchConnectivity requires the watch app to
+be a companion of the iOS app, so `WKCompanionAppBundleIdentifier` is set to
+`com.hockeytracker.ios` in the Info.plist (via `project.yml`).
+
+**Capture/sync unaffected before a token arrives:** with no token,
+`currentToken()` returns `nil`, `APIClient` throws `.missingToken`, and
+`GameSyncManager` keeps the game buffered on disk for the next retry. Capture is
+never blocked on the network or on auth.
 
 ## Setup notes (done on the Mac, not in this container)
 

@@ -46,6 +46,9 @@ targets:
         CFBundleDisplayName: Hockey
         # Single-target ("app-only") watchOS app for watchOS 10+.
         WKApplication: true
+        # WatchConnectivity requires the watch app to be a companion of the iOS
+        # app; this declares the paired iPhone app that pushes the auth token.
+        WKCompanionAppBundleIdentifier: com.hockeytracker.ios
         # Keep the workout session running while the wrist is down / app backgrounded.
         WKBackgroundModes:
           - workout-processing

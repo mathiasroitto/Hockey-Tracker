@@ -46,11 +46,61 @@ to the server — the server cannot derive it from the token.
   that case — it would overwrite an already-stored name. Only issue the `PATCH`
   when a non-nil, non-empty name is actually available.
 
-## Setup notes (done on the Mac, not in this container)
+## Project layout
 
-- Create a universal iOS/iPadOS target in Xcode (SwiftUI, iOS 17+).
-- Use Swift Charts for trends and shift/biometric visualizations.
-- Adapt layouts for both iPhone (compact) and iPad (regular) size classes.
+The Xcode project is generated from `project.yml` with XcodeGen — the
+`.xcodeproj` is not committed. Source lives under `Sources/`:
+
+```
+ios-app/
+  project.yml                 # XcodeGen spec (iOS 17+, universal, SwiftUI)
+  Resources/
+    Info.plist
+    HockeyTracker.entitlements  # Sign in with Apple capability
+  Sources/
+    App/          HockeyTrackerApp.swift   # @main, DI of APIClient + AuthSession, AppConfig
+    Models/       Codable structs mirroring the contract (see below)
+    Networking/   APIClient (async/await URLSession), APIError
+    Auth/         AuthSession (Sign in with Apple flow), TokenStore
+    Support/      JSONCoding (date strategies), Formatting
+    Views/        RootView, SignInView, HomeView, GameDetailView,
+                  CareerStatsView, ProfileEditorView, AsyncContentView
+```
+
+Models: `User`, `UserUpdate`, `Game`, `GameIngest`, `GameStats`, `CareerStats`,
+`GameEvent`, `Shift`, `BiometricSummary`, `EventType`. Optional/nullable and
+integer-vs-number types follow `contract/openapi.yaml` exactly. `UserUpdate`
+uses a double optional (`String??`) so it can distinguish "omit" (leave
+unchanged) from explicit `null` (clear).
+
+Dates: `JSONCoding` decodes both ISO-8601 `date-time` (with/without fractional
+seconds) and plain `yyyy-MM-dd` calendar dates; the game `date` is a calendar
+day rendered in UTC.
+
+## Generating and running (on the Mac, not in this container)
+
+```bash
+cd ios-app
+brew install xcodegen         # once
+xcodegen generate             # writes HockeyTracker.xcodeproj
+open HockeyTracker.xcodeproj
+```
+
+- Bundle id: `com.hockeytracker.ios`. This is the Sign in with Apple audience,
+  so it must equal the server's `APPLE_CLIENT_ID`.
+- Base URL defaults to `http://localhost:8000`; override per-scheme with the
+  `HT_BASE_URL` environment variable (see `AppConfig`).
+- Set `DEVELOPMENT_TEAM` in `project.yml` and confirm the "Sign in with Apple"
+  capability on the target before running on a device.
+
+## Notes
+
+- Use Swift Charts for the shift chart, HR-zone breakdown, and career summary.
+- Layouts adapt to iPhone (compact) and iPad (regular): adaptive grids and a
+  max content width keep detail/career views readable on iPad.
+- Token storage is UserDefaults-backed for the MVP (documented in `TokenStore`);
+  move to Keychain for production. Apple identity tokens are short-lived, so a
+  401 demotes the session to signed-out and prompts re-auth.
 
 ## Rules for this component
 

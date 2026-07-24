@@ -1,30 +1,14 @@
-# XcodeGen project spec for the Hockey-Tracker watchOS capture app.
+# watchOS capture app target — owned by watch-agent.
 #
-# Usage (on your Mac, from inside watch-app/):
+# This is a FRAGMENT composed into the paired project by the root project.yml
+# (at the repo root). It is not generated on its own — run `xcodegen generate`
+# from the repo root, not from here.
 #
-#     brew install xcodegen          # once
-#     xcodegen generate             # regenerates HockeyTrackerWatch.xcodeproj from this file
-#     open HockeyTrackerWatch.xcodeproj
+# Paths are repo-root-relative (the root includes this with relativePaths: false).
 #
-# The generated project is disposable — never edit it by hand; edit this file and
-# re-run `xcodegen generate`. Info.plist and the entitlements file are generated
-# from the `info:` / `entitlements:` blocks below, so they don't need to be
-# committed separately.
-
-name: HockeyTrackerWatch
-
-options:
-  bundleIdPrefix: com.hockeytracker
-  createIntermediateGroups: true
-  deploymentTarget:
-    watchOS: "10.0"
-
-settings:
-  base:
-    SWIFT_VERSION: "5.9"
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: "" # fill in your Apple Developer team id on the Mac
+# Single-target ("app-only") watchOS 10 app. WKCompanionAppBundleIdentifier ties
+# it to the iOS app (com.hockeytracker.ios) so WatchConnectivity delivers the
+# auth token from the phone. The iOS target embeds this one (see ios-app/targets.yml).
 
 targets:
   HockeyTrackerWatch:
@@ -32,16 +16,14 @@ targets:
     platform: watchOS
     deploymentTarget: "10.0"
     sources:
-      - path: Sources
+      - path: watch-app/Sources
     settings:
       base:
-        # Pairs with the iOS app bundle id com.hockeytracker.ios
         PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.watch
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: "" # provided via the generated info: plist below
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
-      path: Sources/Generated/Info.plist
+      path: watch-app/Sources/Generated/Info.plist
       properties:
         CFBundleDisplayName: Hockey
         # Single-target ("app-only") watchOS app for watchOS 10+.
@@ -59,7 +41,7 @@ targets:
           Hockey saves your game as a workout so it appears in the Health and
           Fitness apps.
     entitlements:
-      path: Sources/Generated/HockeyTrackerWatch.entitlements
+      path: watch-app/Sources/Generated/HockeyTrackerWatch.entitlements
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []

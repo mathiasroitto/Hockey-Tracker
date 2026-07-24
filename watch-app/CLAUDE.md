@@ -62,11 +62,14 @@ server-side via `PATCH /me` with body `{ "displayName": "..." }` (the
 ## Project structure
 
 Sources live under `Sources/`, grouped by concern. The Xcode project is
-generated from `project.yml` with XcodeGen — never hand-edit the `.xcodeproj`:
+generated with XcodeGen from the **root** `project.yml`, which composes this app
+(embedded in the iOS app) and the iOS app into one paired project — see
+`../CLAUDE.md` → Building the apps. This app's target spec is the fragment
+`watch-app/targets.yml` (owned by watch-agent); never hand-edit the `.xcodeproj`:
 
 ```
 watch-app/
-  project.yml                 # XcodeGen spec (run: xcodegen generate)
+  targets.yml                 # XcodeGen target fragment (composed by root project.yml)
   Sources/
     App/
       HockeyTrackerWatchApp.swift  # @main; wires GameSession/HealthKit/Sync
@@ -134,8 +137,10 @@ thread-safely (an `NSLock`); `currentToken()` returns the latest cached value
 and never blocks.
 
 **Companion-pairing prerequisite:** WatchConnectivity requires the watch app to
-be a companion of the iOS app, so `WKCompanionAppBundleIdentifier` is set to
-`com.hockeytracker.ios` in the Info.plist (via `project.yml`).
+be a companion of the iOS app. This is now satisfied structurally: the root
+`project.yml` embeds this watch target inside the iOS app, and
+`WKCompanionAppBundleIdentifier` is set to `com.hockeytracker.ios` in the
+generated Info.plist (via `watch-app/targets.yml`).
 
 **Capture/sync unaffected before a token arrives:** with no token,
 `currentToken()` returns `nil`, `APIClient` throws `.missingToken`, and
@@ -144,9 +149,12 @@ never blocked on the network or on auth.
 
 ## Setup notes (done on the Mac, not in this container)
 
-- `brew install xcodegen` then `xcodegen generate` inside `watch-app/`.
-- Capabilities are declared in `project.yml`: HealthKit entitlement + the
-  `workout-processing` background mode + Health usage descriptions.
+- `brew install xcodegen` then `xcodegen generate` from the **repo root** (one
+  project holds both apps); open the `HockeyTracker` scheme to build the iOS app
+  with this watch app embedded, or the `HockeyTrackerWatch` scheme to run the
+  watch app directly.
+- Capabilities are declared in `watch-app/targets.yml`: HealthKit entitlement +
+  the `workout-processing` background mode + Health usage descriptions.
 - Bundle id is `com.hockeytracker.watch` (pairs with `com.hockeytracker.ios`).
 - `APIClient` base URL defaults to `http://localhost:8000` (contract dev server).
 - Keep capture responsive: events buffer locally; sync is opportunistic and

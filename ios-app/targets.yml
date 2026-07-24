@@ -1,0 +1,46 @@
+# iOS/iPadOS stats app target — owned by ios-agent.
+#
+# This is a FRAGMENT composed into the paired project by the root project.yml
+# (at the repo root). It is not generated on its own — run `xcodegen generate`
+# from the repo root, not from here.
+#
+# Paths are repo-root-relative (the root includes this with relativePaths: false),
+# matching $(SRCROOT) at the generated project's location.
+#
+# The bundle id com.hockeytracker.ios is also the Sign in with Apple audience:
+# it must equal the server's APPLE_CLIENT_ID (Apple sets the token `aud` to it).
+
+targets:
+  HockeyTracker:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ios-app/Sources
+      - path: ios-app/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.ios
+        INFOPLIST_FILE: ios-app/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ios-app/Resources/HockeyTracker.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2" # 1 = iPhone, 2 = iPad (universal)
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_EMIT_LOC_STRINGS: YES
+    dependencies:
+      # Embed the watchOS app so the two install as a companion pair. This is
+      # the coupling that enables the WatchConnectivity token hand-off.
+      - target: HockeyTrackerWatch
+        embed: true
+
+  HockeyTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ios-app/Tests
+    dependencies:
+      - target: HockeyTracker
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.ios.tests
+        GENERATE_INFOPLIST_FILE: YES

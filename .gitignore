@@ -17,3 +17,7 @@ xcuserdata/
 DerivedData/
 build/
 *.moved-aside
+
+# XcodeGen-generated (source of truth is project.yml + per-app targets.yml)
+*.xcodeproj/
+**/Sources/Generated/

@@ -31,9 +31,29 @@ The rules that keep parallel work from drifting:
 4. **The contract must always be implementable on all three sides.** Before
    changing it, consider Watch (capture), iOS (display), and server (storage).
 
+## Building the Apple apps (iOS + watch are one paired project)
+
+`ios-app/` and `watch-app/` are separate bounded contexts, but Apple requires a
+watch app and its companion iOS app to build as **one** project (the watch app
+embedded in the iOS app) — that pairing is what makes WatchConnectivity work.
+
+So the Xcode project is generated from the **root** `project.yml`, which
+`include`s each app's own target fragment:
+
+- `project.yml` (root) — composition + shared/project-level settings only.
+- `ios-app/targets.yml` — the iOS target (owned by ios-agent); embeds the watch.
+- `watch-app/targets.yml` — the watch target (owned by watch-agent).
+
+Each agent still owns and edits only its own `targets.yml`; the root file is the
+cross-cutting composition (orchestrator-owned). Generate on a Mac from the repo
+root: `brew install xcodegen` then `xcodegen generate` → `HockeyTracker.xcodeproj`.
+The generated `.xcodeproj` and `**/Sources/Generated/` are not committed.
+
 ## Conventions
 
 - Semantic versioning on the contract (`info.version` in `openapi.yaml`).
-- Timestamps are ISO-8601 UTC. Durations are in seconds. IDs are UUID strings.
+- Timestamps are ISO-8601 UTC with millisecond precision and a `Z` suffix
+  (e.g. `2026-07-23T22:40:59.110Z`); the server emits this canonical form and the
+  clients parse any fractional precision. Durations are in seconds; IDs are UUIDs.
 - Prefer additive, backward-compatible contract changes; breaking changes bump
   the major version and are called out in the changelog.

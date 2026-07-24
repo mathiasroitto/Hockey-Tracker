@@ -80,12 +80,15 @@ This is the phone side only; the Watch side consumes the same keys.
 
 ## Project layout
 
-The Xcode project is generated from `project.yml` with XcodeGen — the
-`.xcodeproj` is not committed. Source lives under `Sources/`:
+The Xcode project is generated with XcodeGen from the **root** `project.yml`,
+which composes this app and the watch app into one paired project (see
+`../CLAUDE.md` → Building the apps). This app's target spec is the fragment
+`ios-app/targets.yml` (owned by ios-agent); the generated `.xcodeproj` is not
+committed. Source lives under `Sources/`:
 
 ```
 ios-app/
-  project.yml                 # XcodeGen spec (iOS 17+, universal, SwiftUI)
+  targets.yml                 # XcodeGen target fragment (composed by root project.yml)
   Resources/
     Info.plist
     HockeyTracker.entitlements  # Sign in with Apple capability
@@ -112,19 +115,22 @@ day rendered in UTC.
 
 ## Generating and running (on the Mac, not in this container)
 
+Generate from the **repo root** (one project holds both apps):
+
 ```bash
-cd ios-app
 brew install xcodegen         # once
-xcodegen generate             # writes HockeyTracker.xcodeproj
-open HockeyTracker.xcodeproj
+xcodegen generate             # at repo root → HockeyTracker.xcodeproj
+open HockeyTracker.xcodeproj  # run the "HockeyTracker" scheme
 ```
 
 - Bundle id: `com.hockeytracker.ios`. This is the Sign in with Apple audience,
   so it must equal the server's `APPLE_CLIENT_ID`.
 - Base URL defaults to `http://localhost:8000`; override per-scheme with the
   `HT_BASE_URL` environment variable (see `AppConfig`).
-- Set `DEVELOPMENT_TEAM` in `project.yml` and confirm the "Sign in with Apple"
-  capability on the target before running on a device.
+- Set `DEVELOPMENT_TEAM` in the root `project.yml` and confirm the "Sign in with
+  Apple" capability on the target before running on a device.
+- The watch app is embedded in this app, so building the `HockeyTracker` scheme
+  builds both — required for the WatchConnectivity token hand-off to work.
 
 ## Notes
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import HockeyContract
 #if canImport(WatchKit)
 import WatchKit
 #endif

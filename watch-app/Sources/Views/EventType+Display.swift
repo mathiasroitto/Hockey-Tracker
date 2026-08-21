@@ -1,4 +1,5 @@
 import SwiftUI
+import HockeyContract
 
 /// UI presentation for `EventType`, kept out of the model so the model stays a
 /// pure contract mirror.
@@ -16,6 +17,7 @@ extension EventType {
         case .faceoffLoss: return "FO L"
         case .takeaway: return "Takeaway"
         case .giveaway: return "Giveaway"
+        case .unknown: return "?"
         }
     }
 
@@ -31,6 +33,7 @@ extension EventType {
         case .faceoffLoss: return .purple
         case .takeaway: return .cyan
         case .giveaway: return .brown
+        case .unknown: return .gray
         }
     }
 }

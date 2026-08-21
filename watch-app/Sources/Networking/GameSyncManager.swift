@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import HockeyContract
 
 /// Buffers finished games on disk and syncs them opportunistically.
 ///

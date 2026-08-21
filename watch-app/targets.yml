@@ -17,6 +17,8 @@ targets:
     deploymentTarget: "10.0"
     sources:
       - path: watch-app/Sources
+    dependencies:
+      - package: HockeyContract
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.watch

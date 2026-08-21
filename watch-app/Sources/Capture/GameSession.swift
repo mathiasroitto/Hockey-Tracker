@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import HockeyContract
 
 /// Manages a single in-progress game: period tracking, event logging, shift
 /// timing, and assembly of the final `GameIngest`.
@@ -51,7 +52,7 @@ final class GameSession: ObservableObject {
 
         let trimmedLocation = location.trimmingCharacters(in: .whitespacesAndNewlines)
         return GameIngest(
-            date: GameDateFormatting.string(from: gameDate),
+            date: gameDate,
             opponent: opponent.trimmingCharacters(in: .whitespacesAndNewlines),
             location: trimmedLocation.isEmpty ? nil : trimmedLocation,
             periods: periods,

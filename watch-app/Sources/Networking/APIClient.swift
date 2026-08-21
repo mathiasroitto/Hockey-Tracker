@@ -1,4 +1,5 @@
 import Foundation
+import HockeyContract
 
 enum APIError: Error, LocalizedError {
     case missingToken

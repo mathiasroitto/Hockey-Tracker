@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import HockeyContract
 #if canImport(HealthKit)
 import HealthKit
 #endif

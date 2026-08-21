@@ -1,4 +1,5 @@
 import SwiftUI
+import HockeyContract
 
 /// Drives the capture flow: pre-game -> live capture -> end-of-game summary.
 struct RootView: View {

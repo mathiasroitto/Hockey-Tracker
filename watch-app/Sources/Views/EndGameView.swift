@@ -1,4 +1,5 @@
 import SwiftUI
+import HockeyContract
 
 /// End-of-game summary + sync trigger. Sync runs off the buffered game so the
 /// user can leave immediately; failures stay queued for retry.
@@ -12,7 +13,7 @@ struct EndGameView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 Text(ingest.opponent).font(.headline)
-                Text(ingest.date).font(.caption).foregroundStyle(.secondary)
+                Text(ContractDate.calendarString(from: ingest.date)).font(.caption).foregroundStyle(.secondary)
 
                 Divider()
 

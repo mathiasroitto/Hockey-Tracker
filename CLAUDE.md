@@ -10,6 +10,7 @@ data contract that binds them together.
 | `watch-app/`   | watchOS (SwiftUI)  | Capture during games: shifts, events, HealthKit biometrics |
 | `ios-app/`     | iOS/iPadOS SwiftUI | View statistics per game and over time                      |
 | `server/`      | Python / FastAPI   | Ingest, store, and process/aggregate game data             |
+| `shared/`      | Swift package (HockeyContract) | Swift mirror of the contract, imported by both apps |
 | `contract/`    | OpenAPI (language-neutral) | The single source of truth for data shapes + API   |
 
 Data flows **Watch → phone → server**, and stats flow back **server → phone**.

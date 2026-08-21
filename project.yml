@@ -34,6 +34,12 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: "" # fill in your Apple Developer team id on the Mac
 
+# Local Swift package holding the contract-mirroring models + JSON coding, shared
+# by both apps (each target declares `- package: HockeyContract` in its fragment).
+packages:
+  HockeyContract:
+    path: shared
+
 include:
   - path: ios-app/targets.yml
     relativePaths: false

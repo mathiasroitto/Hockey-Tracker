@@ -94,24 +94,23 @@ ios-app/
     HockeyTracker.entitlements  # Sign in with Apple capability
   Sources/
     App/          HockeyTrackerApp.swift   # @main, DI of APIClient + AuthSession, AppConfig
-    Models/       Codable structs mirroring the contract (see below)
     Networking/   APIClient (async/await URLSession), APIError
     Auth/         AuthSession (Sign in with Apple flow), TokenStore
     Connectivity/ WatchConnectivityManager (phone→watch token hand-off)
-    Support/      JSONCoding (date strategies), Formatting
+    Support/      Formatting (display helpers)
     Views/        RootView, SignInView, HomeView, GameDetailView,
                   CareerStatsView, ProfileEditorView, AsyncContentView
 ```
 
-Models: `User`, `UserUpdate`, `Game`, `GameIngest`, `GameStats`, `CareerStats`,
-`GameEvent`, `Shift`, `BiometricSummary`, `EventType`. Optional/nullable and
-integer-vs-number types follow `contract/openapi.yaml` exactly. `UserUpdate`
-uses a double optional (`String??`) so it can distinguish "omit" (leave
-unchanged) from explicit `null` (clear).
+Models: the contract-mirroring types (`User`, `UserUpdate`, `Game`, `GameIngest`,
+`GameStats`, `CareerStats`, `GameEvent`, `Shift`, `BiometricSummary`,
+`EventType`) live in the shared **`HockeyContract`** package (`../shared/`), not
+in this app — `import HockeyContract` to use them. The app does not define its
+own copies; that avoids drift with the watch app.
 
-Dates: `JSONCoding` decodes both ISO-8601 `date-time` (with/without fractional
-seconds) and plain `yyyy-MM-dd` calendar dates; the game `date` is a calendar
-day rendered in UTC.
+Dates/JSON: use the package's `ContractJSON` (encoder/decoder) and `ContractDate`
+— they decode ISO-8601 `date-time` of any fractional precision and the
+`yyyy-MM-dd` game `date` (a calendar day in UTC).
 
 ## Generating and running (on the Mac, not in this container)
 

@@ -74,13 +74,11 @@ watch-app/
     App/
       HockeyTrackerWatchApp.swift  # @main; wires GameSession/HealthKit/Sync
       RootView.swift               # flow: preGame -> capturing -> ended
-    Models/                    # Codable mirrors of contract schemas (exact)
-      EventType.swift          #   EventType (raw values are wire strings)
-      GameEvent.swift          #   GameEvent
-      Shift.swift              #   Shift
-      BiometricSummary.swift   #   BiometricSummary
-      GameIngest.swift         #   GameIngest (date is a String yyyy-MM-dd)
-      JSONCoding.swift         #   ContractJSON encoder/decoder (ISO-8601 UTC)
+    # Contract models (EventType, GameEvent, Shift, BiometricSummary,
+    # GameIngest, …) + ContractJSON/ContractDate come from the shared
+    # HockeyContract package (../shared/) — import HockeyContract. This app no
+    # longer defines its own copies. Build the capture grid from
+    # EventType.loggable (excludes the .unknown forward-compat case).
     Capture/
       GameSession.swift        # ObservableObject: periods, events, shifts, ingest
     Health/
@@ -99,11 +97,16 @@ watch-app/
 
 ### Contract mirror notes
 
-- `GameIngest.date` is modeled as a `String` (`yyyy-MM-dd`, UTC) so it serializes
-  as a calendar date, not a full timestamp. All `Date` fields (`timestamp`,
-  `startTime`) use `.iso8601` via `ContractJSON`.
+The contract models live in the shared `HockeyContract` package; these notes
+describe how this app uses them.
+
+- `GameIngest.date` is a `Date` (calendar day); the package codes it as
+  `yyyy-MM-dd`, not a full timestamp. `Date` instant fields (`timestamp`,
+  `startTime`) serialize as ISO-8601 UTC via `ContractJSON`. Build a `GameIngest`
+  by passing the game's `Date` directly.
 - `EventType` raw values are the exact contract strings (`faceoff_win`,
-  `faceoff_loss`, etc.). Do not rename without a contract change.
+  `faceoff_loss`, etc.); it includes a `.unknown` forward-compat case, so build
+  the capture grid from `EventType.loggable` (which excludes it).
 - `BiometricSummary.timeInZonesSeconds` is a `[String: Double]?` map of zone
   label -> seconds. Zone buckets are fixed BPM ranges documented in
   `HealthKitManager` (zone1 <120 ... zone5 >=180).

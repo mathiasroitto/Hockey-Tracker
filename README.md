@@ -34,7 +34,12 @@ the full rules.
 | `server-agent`   | `server/`   |
 | `qa-agent`       | cross-cutting consistency & tests |
 
-## Server quickstart
+## Getting started
+
+New machine? See **[DEVELOPMENT.md](DEVELOPMENT.md)** for the full clone-and-continue
+guide (prerequisites, per-component setup, config reference, and current state).
+
+### Server quickstart
 
 ```bash
 cd server
@@ -47,3 +52,12 @@ pytest
 
 All endpoints except `/health` require a Sign in with Apple identity token
 (`Authorization: Bearer <token>`); data is scoped per user.
+
+### Apple apps (macOS)
+
+```bash
+brew install xcodegen && xcodegen generate   # at repo root → HockeyTracker.xcodeproj
+open HockeyTracker.xcodeproj
+```
+
+The iOS and watch apps build as one paired project. See [DEVELOPMENT.md](DEVELOPMENT.md).

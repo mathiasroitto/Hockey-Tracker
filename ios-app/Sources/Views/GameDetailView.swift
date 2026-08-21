@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import HockeyContract
 
 /// Per-game detail: box score (from `GameStats`), a shift chart (from the
 /// game's shifts), and the biometric summary. All numbers are server-computed.

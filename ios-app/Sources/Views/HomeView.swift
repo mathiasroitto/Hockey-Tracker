@@ -1,4 +1,5 @@
 import SwiftUI
+import HockeyContract
 
 /// Signed-in home: profile header + a list of the user's games.
 struct HomeView: View {

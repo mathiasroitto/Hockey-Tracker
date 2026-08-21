@@ -31,6 +31,9 @@ targets:
       # the coupling that enables the WatchConnectivity token hand-off.
       - target: HockeyTrackerWatch
         embed: true
+      # Shared contract-mirroring models + JSON coding, consumed by both apps.
+      # The package is declared in the root project.yml.
+      - package: HockeyContract
 
   HockeyTrackerTests:
     type: bundle.unit-test
@@ -40,6 +43,8 @@ targets:
       - path: ios-app/Tests
     dependencies:
       - target: HockeyTracker
+      # Date-parsing tests exercise the shared coder (ContractDate) directly.
+      - package: HockeyContract
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hockeytracker.ios.tests

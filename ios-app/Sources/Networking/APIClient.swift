@@ -1,4 +1,5 @@
 import Foundation
+import HockeyContract
 
 /// Supplies the current Sign in with Apple identity token to the API client.
 /// Kept as a protocol so the client is testable and decoupled from the auth UI.
@@ -16,8 +17,8 @@ final class APIClient {
     let baseURL: URL
     private let session: URLSession
     private weak var tokenProvider: TokenProviding?
-    private let decoder = JSONCoding.decoder
-    private let encoder = JSONCoding.encoder
+    private let decoder = ContractJSON.decoder
+    private let encoder = ContractJSON.encoder
 
     /// - Parameters:
     ///   - baseURL: server base URL. Defaults to the local dev server.
@@ -62,10 +63,10 @@ final class APIClient {
             items.append(URLQueryItem(name: "opponent", value: opponent))
         }
         if let from {
-            items.append(URLQueryItem(name: "from", value: DateParsing.calendarString(from: from)))
+            items.append(URLQueryItem(name: "from", value: ContractDate.calendarString(from: from)))
         }
         if let to {
-            items.append(URLQueryItem(name: "to", value: DateParsing.calendarString(from: to)))
+            items.append(URLQueryItem(name: "to", value: ContractDate.calendarString(from: to)))
         }
         return try await send(method: "GET", path: "/games", query: items)
     }

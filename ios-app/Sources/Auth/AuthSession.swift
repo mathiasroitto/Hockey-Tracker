@@ -1,5 +1,6 @@
 import Foundation
 import AuthenticationServices
+import HockeyContract
 
 /// Observable auth state for the whole app. Owns the Sign in with Apple flow,
 /// the current `User`, and coordinates the one-time display-name capture.

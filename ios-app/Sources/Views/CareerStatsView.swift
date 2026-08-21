@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import HockeyContract
 
 /// Aggregate view: career totals and a simple points/shooting summary. All
 /// figures come straight from `GET /stats/career` — no client-side math.

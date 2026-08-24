@@ -36,8 +36,10 @@ the full rules.
 
 ## Getting started
 
-New machine? See **[DEVELOPMENT.md](DEVELOPMENT.md)** for the full clone-and-continue
-guide (prerequisites, per-component setup, config reference, and current state).
+New machine, account, or session? Start with **[HANDOFF.md](HANDOFF.md)** (status,
+key decisions, gotchas, next steps), then **[DEVELOPMENT.md](DEVELOPMENT.md)** for
+the full clone-and-continue setup (prerequisites, per-component setup, config
+reference).
 
 ### Server quickstart
 

@@ -3,6 +3,10 @@
 A personal hockey performance tracking system in three parts, plus a shared
 data contract that binds them together.
 
+> **Continuing this work (new session/machine/account)?** Read **`HANDOFF.md`**
+> (status, decisions, gotchas, next steps) and **`DEVELOPMENT.md`** (how to run
+> each part). `main` has everything; there are no secrets in the repo.
+
 ## The system
 
 | Component      | Runtime            | Responsibility                                              |

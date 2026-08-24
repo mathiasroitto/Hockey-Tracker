@@ -151,28 +151,28 @@ Hockey-Tracker/
 
 ## Current state (for the next session)
 
-Implemented and pushed on `claude/hockey-tracker-agents-qqy7l6`:
+Implemented on `main`:
 
 - **Server**: full contract v0.4.0 — games ingest/list (opponent + date-range
   filters), per-game & career stats, Sign in with Apple auth, per-user data
   scoping, `GET/PATCH /me` (displayName). SQLite via Alembic. 20 tests passing.
-- **iOS app** (MVP): Sign in with Apple, API client, contract models, games list
-  + game detail + career stats, displayName display, pushes the auth token to
-  the watch via WatchConnectivity.
+- **`shared/` HockeyContract package**: single Swift mirror of the contract,
+  imported by both apps (models no longer duplicated).
+- **iOS app** (MVP): Sign in with Apple, API client, games list + game detail +
+  career stats, displayName display, pushes the auth token to the watch.
 - **Watch app** (MVP): live event/shift capture, HealthKit biometrics,
   `GameIngest` sync with offline buffering, receives the auth token from the phone.
 - **Paired Xcode project** wiring both apps (this enables WatchConnectivity).
 
 Known follow-ups / not yet done:
 
-- **Validate `xcodegen generate` on a Mac** — the project specs were authored
-  without a local XcodeGen/Xcode to run them; expect to smooth over any path or
-  embedding detail on first generate.
-- **Shared Swift package** for the contract models (currently mirrored in both
-  apps) — the clean way to kill client-side drift now that they share a project.
+- **Validate the Swift on a Mac** — no Swift/Xcode toolchain in the cloud env, so
+  the package + apps + specs are inspection-verified, not compiled. Run
+  `swift test` in `shared/` and `xcodegen generate` from the repo root, then build.
 - **Token storage → Keychain** on iOS (MVP uses UserDefaults).
 - **Add `Assets.xcassets` / AppIcon** to each app.
 - **Real end-to-end auth test** with a live Apple token (needs the apps on
   device/simulator).
-- **Server model optionality** — a couple of always-populated fields are stricter
-  than the contract (harmless; noted by qa-agent).
+
+For the full decision log, gotchas, and prioritized next steps, see
+**[HANDOFF.md](HANDOFF.md)**.
